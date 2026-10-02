@@ -430,7 +430,13 @@
   // suggest: { style, variant } while the suggested diet plan is open.
   // calCursor: any date inside the week/month the calendar is showing.
   // setup: true until sex, date of birth, height and weight are entered; the app shows only the setup screen meanwhile.
-  const ui = { view: 'today', date: today(), calCursor: today(), calOpen: false, picker: null, check: newPicker({ type: 'check' }), suggest: null, setup: !bodyStats().bmr, guide: false };
+  const ui = { view: 'today', date: today(), calCursor: today(), calOpen: false, picker: null, check: newPicker({ type: 'check' }), suggest: null, setup: !bodyStats().bmr, guide: false,
+    // dob: the day, month and year boxes as typed.
+    dob: (() => {
+      const [y, m, d] = (state.body.dob || '').split('-');
+      return state.body.dob ? { d: String(+d), m: String(+m), y } : { d: '', m: '', y: '' };
+    })(),
+  };
   const activePicker = () => ui.picker || (ui.view === 'check' ? ui.check : null);
 
   const pickerItem = pk => ({ id: uid(), food: pk.food, unit: pk.unit, qty: pk.qty || 0 });
@@ -1079,8 +1085,8 @@
       <section class="card">
         <h2>Your details</h2>
         <div class="seg">${sexBtn('male', 'Male')}${sexBtn('female', 'Female')}</div>
+        ${dobHtml()}
         <div class="n-form">
-          <label class="n-target">Date of birth<input type="date" data-n-field="body" data-k="dob" value="${esc(b.dob)}" max="${today()}"></label>
           <label class="n-target">Height (cm)<input data-n-field="body" data-k="height" inputmode="decimal" autocomplete="off" value="${b.height != null ? b.height : ''}"></label>
           <label class="n-target">Weight (kg)<input data-n-field="body" data-k="weight" inputmode="decimal" autocomplete="off" value="${b.weight != null ? b.weight : ''}"></label>
         </div>
@@ -1102,8 +1108,7 @@
           <button class="wide-btn" data-n="act-switch">Work it out from my activities instead</button>` : ''}
         ${b.activity === 'active' ? activityHtml() : ''}
       </section>
-      <div id="n-body-results">${bodyResults()}</div>
-      <button class="wide-btn" data-n="guide-open">How to use the app</button>`;
+      <div id="n-body-results">${bodyResults()}</div>`;
   }
 
   // ---------- Progress (rendered inside the Progress tab) ----------
@@ -1143,6 +1148,45 @@
       </section>`;
   }
 
+  // ---------- Date of birth ----------
+
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  // Day, month and year as separate boxes. ui.dob holds what is typed so far, even while incomplete.
+  function dobHtml() {
+    const p = ui.dob;
+    return `
+      <div class="n-dob">
+        <span>Date of birth</span>
+        <div class="n-dob-row">
+          <input data-n-field="dob" data-part="d" inputmode="numeric" maxlength="2" autocomplete="off" placeholder="Day" aria-label="Day of birth" value="${esc(p.d)}">
+          <select class="name-select" data-n-field="dob" data-part="m" aria-label="Month of birth">
+            <option value="">Month</option>
+            ${MONTHS.map((name, i) => `<option value="${i + 1}"${+p.m === i + 1 ? ' selected' : ''}>${name}</option>`).join('')}
+          </select>
+          <input data-n-field="dob" data-part="y" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="Year" aria-label="Year of birth" value="${esc(p.y)}">
+        </div>
+      </div>`;
+  }
+
+  // The typed parts as a date, or '' while they do not yet make a real past date.
+  function dobFromParts() {
+    const d = +ui.dob.d, m = +ui.dob.m, y = +ui.dob.y;
+    if (!(d >= 1 && d <= 31 && m >= 1 && m <= 12 && y >= 1900)) return '';
+    const date = new Date(y, m - 1, d, 12);
+    if (date.getMonth() !== m - 1 || date.getDate() !== d) return '';
+    const iso = isoDate(date);
+    return iso <= today() ? iso : '';
+  }
+
+  function setDobPart(el) {
+    ui.dob[el.dataset.part] = el.value.trim();
+    state.body.dob = dobFromParts();
+    save();
+    if (ui.setup) $('#n-setup-status').innerHTML = setupStatus();
+    else $('#n-body-results').innerHTML = bodyResults();
+  }
+
   // ---------- First-run setup ----------
 
   // Shows what is still missing, or the result and the button to continue.
@@ -1173,8 +1217,8 @@
       <section class="card">
         <h2>About you</h2>
         <div class="seg">${sexBtn('male', 'Male')}${sexBtn('female', 'Female')}</div>
+        ${dobHtml()}
         <div class="n-form">
-          <label class="n-target">Date of birth<input type="date" data-n-field="body" data-k="dob" value="${esc(b.dob)}" max="${today()}"></label>
           <label class="n-target">Height (cm)<input data-n-field="body" data-k="height" inputmode="decimal" autocomplete="off" value="${b.height != null ? b.height : ''}"></label>
           <label class="n-target">Weight (kg)<input data-n-field="body" data-k="weight" inputmode="decimal" autocomplete="off" value="${b.weight != null ? b.weight : ''}"></label>
         </div>
@@ -1182,25 +1226,65 @@
       <div id="n-setup-status">${setupStatus()}</div>`;
   }
 
-  // A one-screen tour: shown once after setup, and again from Nutrition → Body whenever wanted.
+  // ---------- How-to-use tour ----------
+  // Five slides to swipe through: a small picture of the screen, then what to do there.
+  // Shown once after setup, and any time from the How to use tab.
+
+  const mockBar = (label, text, width) => `<div class="mock-bar"><span>${label}</span><span>${text}</span><u><i style="width:${width}%"></i></u></div>`;
+  const mockCheck = (on, name, kcal) => `<div class="mock-check${on ? ' on' : ''}"><i></i><span>${name}</span><b>${kcal}</b></div>`;
   const GUIDE = [
-    ['Workout', 'Pick your split, then choose an exercise in each box. For every set type the weight (kg or plates) and reps, and the minutes the exercise took. The app shows last time’s numbers, flags new records and estimates calories burned.'],
-    ['Diet plan', 'Under Nutrition → Body you see your daily calorie burn. Tap “Suggest a diet plan” to get a plan and targets for your goal, or build your own under Diet plan.'],
-    ['Today', 'Tick each food as you eat it. Anything outside your plan goes in with “+ Add something else”. The bars show what is left for the day.'],
-    ['Check food', 'Before eating something unplanned, look it up: you get its macros and whether it fits your targets.'],
-    ['History and Progress', 'History lists every workout. Progress shows your records and charts for both training and eating. On any calendar, tap a past date to see that day.'],
+    ['Log your workout', 'Pick your split, then choose an exercise in each box. Type the weight and reps for every set and the minutes it took. You see last time’s numbers, new records and calories burned.', `
+      <div class="mock-head"><b>Bench Press</b><span>≈ 47 kcal</span></div>
+      <div class="mock-sets"><span>1</span><i>60</i><i>10</i><span>2</span><i>60</i><i>8</i><span>3</span><i>60</i><i>7</i></div>
+      <div class="mock-foot"><span>Drop set</span><span><i>12</i> min</span></div>`],
+    ['Get your diet plan', 'Nutrition → Body shows how many calories you burn in a day. Tap “Suggest a diet plan” for a plan and targets that fit your goal, or build your own under Diet plan.', `
+      <div class="mock-head"><b>Lose fat: plan vs targets</b></div>
+      ${mockBar('Calories', '2,251 / 2,260', 99)}${mockBar('Protein', '160 / 160 g', 100)}${mockBar('Carbs', '264 / 263 g', 100)}${mockBar('Fat', '63 / 63 g', 100)}`],
+    ['Tick what you eat', 'In Today, tick each food as you eat it. Anything outside your plan goes in with “+ Add something else”. The bars show what is left for the day.', `
+      ${mockCheck(true, 'Oats, 90 g', '350 kcal')}${mockCheck(true, 'Eggs, 3', '233 kcal')}${mockCheck(false, 'Chicken breast, 150 g', '180 kcal')}
+      <div class="mock-note">1,497 kcal left today</div>`],
+    ['Check a food first', 'Before eating something that is not in your plan, look it up in Check food. You get its macros and whether it still fits your targets.', `
+      <div class="mock-search">samosa</div>
+      <div class="mock-head"><b>2 samosas</b><span>348 kcal</span></div>
+      <div class="mock-note warn">Goes over your target by 120 kcal</div>`],
+    ['Watch your progress', 'Progress shows your records and charts for training and eating; History lists every workout. On any calendar, tap a past date to see that day.', `
+      <svg viewBox="0 0 240 84" class="mock-chart"><polyline points="8,70 54,58 100,62 146,40 192,34 232,14"/>${[[8, 70], [54, 58], [100, 62], [146, 40], [192, 34], [232, 14]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="4"/>`).join('')}</svg>
+      <div class="mock-week">${['done', 'done', 'missed', 'done', 'done', '', ''].map((m, i) => `<span>${'MTWTFSS'[i]}<i class="dot ${m}"></i></span>`).join('')}</div>`],
   ];
+  // inTab: the tour is open as the How to use tab, with the tab bar still on screen, not as the first-run screen.
+  let inTab = false;
+  const guideLast = () => (inTab ? 'Go to Workout' : state.guideSeen ? 'Close' : 'Start');
 
   function guidePage() {
     return `
-      <header class="top"><div class="top-row"><h1>How to use the app</h1></div></header>
-      ${GUIDE.map(([title, text], i) => `
-        <section class="card guide-step">
-          <span class="guide-n">${i + 1}</span>
-          <div><h2>${title}</h2><p class="last">${text}</p></div>
-        </section>`).join('')}
-      <p class="sub n-hint">Everything you enter is saved on this phone only. Always open the app from its Home Screen icon, or your data will not be there.</p>
-      <button class="primary-btn" data-n="guide-done">${state.guideSeen ? 'Close' : 'Start'}</button>`;
+      <header class="top"><div class="top-row">
+        <h1>How to use</h1>
+        ${inTab ? '' : `<button class="link-btn" data-n="guide-done">${state.guideSeen ? 'Close' : 'Skip'}</button>`}
+      </div></header>
+      <div class="guide" id="guide">
+        ${GUIDE.map(([title, text, picture]) => `
+          <section class="guide-slide">
+            <div class="mock" aria-hidden="true">${picture}</div>
+            <h2>${title}</h2>
+            <p>${text}</p>
+          </section>`).join('')}
+      </div>
+      <div class="guide-dots" id="guide-dots">${GUIDE.map((s, i) => `<i class="${i === 0 ? 'on' : ''}"></i>`).join('')}</div>
+      <button class="primary-btn" data-n="guide-next" id="guide-next">Next</button>
+      <p class="sub n-hint guide-foot">Swipe left or tap Next. Everything you enter is saved on this phone only, so always open the app from its Home Screen icon.</p>`;
+  }
+
+  const guideIndex = () => {
+    const g = $('#guide');
+    return Math.round(g.scrollLeft / g.clientWidth);
+  };
+  // Keeps the dots and the button in step with the slide on screen.
+  function watchGuide() {
+    $('#guide').addEventListener('scroll', () => {
+      const i = guideIndex();
+      document.querySelectorAll('#guide-dots i').forEach((dot, n) => dot.classList.toggle('on', n === i));
+      $('#guide-next').textContent = i === GUIDE.length - 1 ? guideLast() : 'Next';
+    }, { passive: true });
   }
 
   function render() {
@@ -1210,7 +1294,9 @@
       return;
     }
     if (ui.guide) {
+      inTab = false;
       app.innerHTML = guidePage();
+      watchGuide();
       return;
     }
     if (ui.suggest) {
@@ -1262,12 +1348,20 @@
       window.GymUI.render();
       window.scrollTo(0, 0);
     },
-    'guide-open'() { ui.guide = true; window.GymUI.render(); window.scrollTo(0, 0); },
+    'guide-next'() {
+      const g = $('#guide');
+      const i = guideIndex();
+      if (i >= GUIDE.length - 1) return inTab ? window.GymUI.openTab('workout') : actions['guide-done']();
+      g.scrollTo({ left: (i + 1) * g.clientWidth, behavior: 'smooth' });
+    },
     'guide-done'() {
+      const firstTime = !state.guideSeen;
       ui.guide = false;
       state.guideSeen = true;
       save();
-      window.GymUI.render();
+      // A new user goes straight on to choosing their training split.
+      if (firstTime) window.GymUI.firstRun();
+      else window.GymUI.render();
       window.scrollTo(0, 0);
     },
     goal(el) {
@@ -1509,8 +1603,10 @@
       state.targets[el.dataset.k] = parseNum(el.value);
       save();
       $('#n-plan-total').innerHTML = bars(sum(planItems()));
+    } else if (field === 'dob') {
+      setDobPart(el);
     } else if (field === 'body') {
-      state.body[el.dataset.k] = el.dataset.k === 'dob' ? el.value : parseNum(el.value);
+      state.body[el.dataset.k] = parseNum(el.value);
       // The worked-out activity calories depend on body weight.
       if (el.dataset.k === 'weight') syncActivity();
       save();
@@ -1538,7 +1634,9 @@
   document.addEventListener('change', e => {
     const el = e.target;
     const field = el.dataset.nField;
-    if (field === 'unit') {
+    if (field === 'dob') {
+      setDobPart(el);
+    } else if (field === 'unit') {
       const pk = activePicker();
       pk.unit = +el.value;
       pk.qty = defaultQty(pk.food, pk.unit);
@@ -1576,6 +1674,12 @@
     progressHtml,
     // True while the setup screen or the how-to-use tour covers the app.
     inSetup: () => ui.setup || ui.guide,
+    // The How to use tab: the same tour, reachable any time from the tab bar.
+    guideTab() {
+      inTab = true;
+      $('#app').innerHTML = guidePage();
+      watchGuide();
+    },
     // Used by the Workout tab's calorie estimate; null until it is entered under Body.
     bodyWeight: () => (state.body.weight > 0 ? state.body.weight : null),
   };

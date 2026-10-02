@@ -715,6 +715,15 @@
     chart,
     // Redraws whichever tab is open; the Nutrition module calls it when setup finishes.
     render: () => render(),
+    openTab(tab) { ui.tab = tab; render(); window.scrollTo(0, 0); },
+    // After first-run setup: ask for the training split, unless workouts are already logged.
+    firstRun() {
+      if (!state.sessions.length) {
+        ui.tab = 'workout';
+        ui.choosingSplit = true;
+      }
+      render();
+    },
     // Calories burned across every workout logged on a date, for the Nutrition tab.
     workoutBurn(date) {
       const t = { kcal: 0, min: 0, timed: 0, logged: 0 };
@@ -735,6 +744,7 @@
     if (setup) return window.GymNutrition.render();
     for (const b of document.querySelectorAll('#tabbar button')) b.classList.toggle('on', b.dataset.tab === ui.tab);
     if (ui.tab === 'nutrition') window.GymNutrition.render();
+    else if (ui.tab === 'guide') window.GymNutrition.guideTab();
     else if (ui.tab === 'history') renderHistory();
     else if (ui.tab === 'progress') renderProgress();
     else renderWorkout();
@@ -765,7 +775,9 @@
     'cancel-split'() { ui.choosingSplit = false; render(); },
     async 'pick-split'(el) {
       const split = SPLITS[+el.dataset.i];
-      if (state.days.length && !(await ask(`Switch to "${split.name}"? Your current days are replaced. Workouts already logged stay in History.`, 'Switch'))) return;
+      // Only worth a warning when there is something to lose: chosen exercises or logged workouts.
+      const inUse = state.sessions.length || state.days.some(d => dayExIds(d).length);
+      if (inUse && !(await ask(`Switch to "${split.name}"? Your current days are replaced. Workouts already logged stay in History.`, 'Switch'))) return;
       applySplit(split);
       render();
       window.scrollTo(0, 0);

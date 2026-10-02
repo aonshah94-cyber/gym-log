@@ -314,7 +314,7 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
   display: block; width: 100%; height: 44px; margin-top: 4px; text-align: center; font-size: 16px; font-weight: 600; color: var(--text);
   background: var(--surface-2); border: 1px solid transparent; border-radius: 10px; outline: none;
 }
-.n-form { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+.n-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 .n-form input[type="date"] { font-size: 14px; padding: 0 4px; -webkit-appearance: none; appearance: none; color: var(--text); }
 .n-activity { display: block; margin-top: 12px; text-align: left; }
 .n-activity .name-select { display: block; width: 100%; margin-top: 4px; font-size: 15px; font-weight: 600; }
@@ -420,3 +420,54 @@ body.setup .tabbar { display: none; }
   flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--accent-ink);
   display: flex; align-items: center; justify-content: center; font-weight: 800;
 }
+
+/* Date of birth: day, month, year */
+.n-dob { margin-top: 12px; color: var(--muted); font-size: 12px; text-align: center; }
+.n-dob-row { display: grid; grid-template-columns: 1fr 1.6fr 1.2fr; gap: 8px; margin-top: 4px; }
+.n-dob-row input, .n-dob-row .name-select {
+  width: 100%; height: 44px; padding: 0 8px; text-align: center; text-align-last: center; font-size: 16px; font-weight: 600;
+  color: var(--text); background-color: var(--surface-2); border: 1px solid transparent; border-radius: 10px; outline: none;
+}
+.n-dob-row .name-select { padding-right: 26px; background-position: right 8px center; }
+.n-dob-row input:focus { border-color: var(--accent); }
+
+/* Swipeable tour */
+.guide { display: flex; margin: 0 -16px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.guide::-webkit-scrollbar { display: none; }
+.guide-slide { flex: 0 0 100%; scroll-snap-align: center; padding: 18px 16px 6px; text-align: center; }
+.guide-slide h2 { margin: 18px 0 6px; font-size: 22px; letter-spacing: -0.01em; }
+.guide-slide p { margin: 0 auto; max-width: 320px; color: var(--muted); font-size: 15px; }
+.guide-dots { display: flex; justify-content: center; gap: 8px; margin: 14px 0 4px; }
+.guide-dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.guide-dots i.on { background: var(--accent); }
+.guide-foot { text-align: center; font-size: 12px; }
+.mock {
+  max-width: 300px; min-height: 196px; margin: 0 auto; padding: 14px; text-align: left; font-size: 13px;
+  display: flex; flex-direction: column; justify-content: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.mock-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 15px; }
+.mock-head span { color: var(--muted); font-size: 12px; font-weight: 600; }
+.mock-sets { display: grid; grid-template-columns: 20px 1fr 1fr; gap: 6px; align-items: center; }
+.mock-sets span { color: var(--muted); font-weight: 700; text-align: center; }
+.mock-sets i, .mock-foot i { font-style: normal; font-weight: 700; text-align: center; padding: 7px 0; border-radius: 8px; background: var(--surface-2); }
+.mock-foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); }
+.mock-foot i { display: inline-block; padding: 5px 12px; color: var(--text); }
+.mock-bar { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; color: var(--muted); }
+.mock-bar span:last-of-type { color: var(--text); font-weight: 600; }
+.mock-bar u { grid-column: 1 / -1; height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.mock-bar u i { display: block; height: 100%; background: var(--accent); }
+.mock-check { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.mock-check i { flex: none; width: 18px; height: 18px; border-radius: 5px; border: 2px solid var(--muted); }
+.mock-check.on i { background: var(--accent); border-color: var(--accent); }
+.mock-check span { flex: 1; }
+.mock-note { color: var(--accent); font-weight: 600; }
+.mock-note.warn { color: var(--danger); }
+.mock-search { padding: 9px 12px; border-radius: 10px; background: var(--surface-2); color: var(--text); font-weight: 600; }
+.mock-chart { display: block; width: 100%; height: auto; }
+.mock-chart polyline { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.mock-chart circle { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
+.mock-week { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; font-weight: 600; }
+.mock-week span { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tabbar button { font-size: 12px; padding: 16px 0; }
+.tabbar { padding-left: 6px; padding-right: 6px; }

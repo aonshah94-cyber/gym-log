@@ -152,6 +152,9 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
   align-items: center;
 }
 .set-head { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; text-align: center; }
+.unit-toggle { display: flex; padding: 2px; border-radius: 8px; background: var(--surface-2); }
+.unit-toggle button { flex: 1; height: 26px; border-radius: 6px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.unit-toggle button.on { background: var(--accent); color: var(--accent-ink); }
 .set-n { color: var(--muted); font-weight: 700; text-align: center; }
 .set input {
   width: 100%;
@@ -268,7 +271,87 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 .chart .line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .chart .dot { fill: var(--bg); stroke: var(--accent); stroke-width: 2; }
 .chart .dot.pr { fill: var(--accent); }
+.chart .target { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
 .chart text { fill: var(--muted); font-size: 11px; }
+
+/* Nutrition */
+.seg { display: flex; gap: 4px; margin-top: 12px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+.seg button { flex: 1; height: 38px; border-radius: 9px; color: var(--muted); font-weight: 600; font-size: 14px; }
+.seg button.on { background: var(--surface-2); color: var(--text); }
+.n-hint { margin-top: 14px; }
+.n-picker { margin-top: 14px; }
+.n-search { height: 48px; -webkit-appearance: none; appearance: none; }
+.n-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 2px; text-align: left; border-bottom: 1px solid var(--line); }
+.n-main { flex: 1; min-width: 0; font-weight: 600; text-align: left; }
+.n-sub { display: block; color: var(--muted); font-size: 13px; font-weight: 400; }
+.n-kcal { font-weight: 700; white-space: nowrap; font-size: 14px; }
+.n-list { padding-top: 6px; padding-bottom: 6px; }
+.n-list .card-head { padding: 8px 0; }
+.n-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.n-list > .n-item:first-child { border-top: 0; }
+.n-item input[type="checkbox"] { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--accent); }
+.n-item .icon-btn { width: 36px; height: 36px; }
+.n-edit { display: flex; flex: 1; min-width: 0; align-items: center; gap: 10px; }
+.n-subtotal { margin: 0; padding: 10px 0 0; border-top: 1px solid var(--line); }
+.n-list .wide-btn { margin: 10px 0 8px; padding: 11px; }
+.n-meal-head { display: flex; align-items: flex-end; justify-content: space-between; }
+.n-meal-head .link-btn { padding: 0 2px; font-size: 14px; }
+.n-date span { flex: 1; text-align: center; color: var(--text); font-weight: 600; font-size: 16px; }
+.n-q { display: block; margin-top: 14px; font-weight: 650; }
+.n-qty-row { display: flex; gap: 8px; margin-top: 8px; }
+.n-qty-row input {
+  flex: 1; min-width: 0; height: 46px; text-align: center; font-size: 20px; font-weight: 700;
+  background: var(--surface-2); border: 1px solid transparent; border-radius: 10px; outline: none;
+}
+.n-qty-row input:focus, .n-target input:focus { border-color: var(--accent); }
+.n-qty-row .name-select { flex: 1.2; height: 46px; font-size: 15px; }
+.stats.four { grid-template-columns: repeat(4, 1fr); }
+.stats.four .stat { padding: 10px 6px; text-align: center; background: var(--surface-2); border: 0; }
+.stats.four .stat b { font-size: 16px; }
+.n-targets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 10px; }
+.n-target { color: var(--muted); font-size: 12px; text-align: center; }
+.n-target input {
+  display: block; width: 100%; height: 44px; margin-top: 4px; text-align: center; font-size: 16px; font-weight: 600; color: var(--text);
+  background: var(--surface-2); border: 1px solid transparent; border-radius: 10px; outline: none;
+}
+.n-form { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 8px; margin-top: 12px; }
+.n-form input[type="date"] { font-size: 14px; padding: 0 4px; -webkit-appearance: none; appearance: none; color: var(--text); }
+.n-activity { display: block; margin-top: 12px; text-align: left; }
+.n-activity .name-select { display: block; width: 100%; margin-top: 4px; font-size: 15px; font-weight: 600; }
+.stats.two { grid-template-columns: repeat(2, 1fr); }
+.stats.two .stat { background: var(--surface-2); border: 0; text-align: center; }
+.card .seg { background: var(--surface-2); border: 0; }
+.card .seg button.on { background: var(--accent); color: var(--accent-ink); }
+.n-activity input { text-align: left; padding: 0 12px; }
+.n-note { margin-top: 4px; font-style: italic; }
+.n-rules { margin: 10px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; display: grid; gap: 8px; }
+.n-act { display: grid; grid-template-columns: 1fr 64px auto 36px; gap: 8px; align-items: center; margin-top: 8px; }
+.n-act .name-select { height: 44px; font-size: 14px; font-weight: 600; }
+.n-act input {
+  width: 100%; height: 44px; text-align: center; font-size: 16px; font-weight: 600; color: var(--text);
+  background: var(--surface-2); border: 1px solid transparent; border-radius: 10px; outline: none;
+}
+.n-act input:focus { border-color: var(--accent); }
+.n-act .icon-btn { width: 36px; height: 36px; }
+.n-act-kcal { color: var(--muted); font-size: 13px; white-space: nowrap; }
+.bar i.soft { opacity: 0.45; }
+.n-link { text-align: center; text-decoration: none; color: var(--muted); }
+.n-inline { padding: 0; font-size: 13px; }
+.card .wide-btn { margin-top: 10px; padding: 12px; }
+.bar-row { margin-top: 12px; }
+.bar-top { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; color: var(--muted); }
+.bar-top b { color: var(--text); }
+.bar { display: flex; height: 6px; margin-top: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.bar i { background: var(--accent); }
+.bar i.extra { background: var(--text); }
+.bar.over i { background: var(--danger); }
+.bar.over i.extra { opacity: 0.6; }
+.primary-btn {
+  display: block; width: 100%; margin-top: 12px; padding: 15px; border-radius: var(--radius);
+  background: var(--accent); color: var(--accent-ink); font-weight: 700;
+}
+.n-details summary { font-weight: 600; color: var(--muted); }
+.n-details .name-input { margin-top: 10px; font-weight: 500; }
 
 /* Tab bar */
 .tabbar {
@@ -282,5 +365,58 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);
 }
-.tabbar button { flex: 1; padding: 16px 0; color: var(--muted); font-weight: 600; font-size: 14px; }
+.tabbar button { flex: 1; padding: 16px 0; color: var(--muted); font-weight: 600; font-size: 13px; }
 .tabbar button.on { color: var(--accent); }
+
+/* In-app dialogs */
+.modal {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: rgba(0, 0, 0, 0.6);
+}
+.modal-box { width: 100%; max-width: 360px; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.modal-box p { margin: 0; font-size: 16px; }
+.modal-box .name-input { margin-top: 14px; font-weight: 500; }
+.modal-btns { display: flex; gap: 10px; margin-top: 18px; }
+.modal-btns button { flex: 1; height: 46px; border-radius: 10px; font-weight: 700; }
+.modal-cancel { background: var(--surface-2); color: var(--text); }
+.modal-ok { background: var(--accent); color: var(--accent-ink); }
+.modal-ok.danger { background: var(--danger); color: #1a0505; }
+
+/* Own activities */
+.n-act-own { margin-top: 6px; }
+.n-act-own .name-input { font-weight: 500; }
+.n-act-own .link-btn { display: inline-block; margin-top: 6px; }
+.n-act .n-act-own-kcal { width: 64px; }
+.n-legend { margin-top: 10px; font-size: 12px; }
+.n-target input { padding: 0 2px; }
+.top .seg { margin-top: 6px; }
+
+/* Exercise time and calories */
+.time { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 14px; }
+.time input {
+  width: 48px; height: 36px; text-align: center; font-size: 16px; font-weight: 600; color: var(--text);
+  background: var(--surface-2); border: 1px solid transparent; border-radius: 10px; outline: none;
+}
+.time input:focus { border-color: var(--accent); }
+.burn { color: var(--muted); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.card-foot { gap: 8px; }
+.plate-kg { display: flex; align-items: center; gap: 6px; margin-top: 10px; color: var(--muted); font-size: 13px; }
+.plate-kg input {
+  width: 52px; height: 32px; text-align: center; font-size: 16px; font-weight: 600; color: var(--text);
+  background: var(--surface-2); border: 1px solid transparent; border-radius: 8px; outline: none;
+}
+.plate-kg input:focus { border-color: var(--accent); }
+.plate-kg span { opacity: 0.8; }
+
+/* Calorie hint under the exercise name, first-run setup */
+.burn-hint { margin: 4px 0 0; color: var(--accent); font-size: 12px; }
+body.setup .tabbar { display: none; }
+.primary-btn:disabled { opacity: 0.35; }
+
+/* How-to-use tour */
+.guide-step { display: flex; gap: 12px; align-items: flex-start; }
+.guide-n {
+  flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: var(--accent-ink);
+  display: flex; align-items: center; justify-content: center; font-weight: 800;
+}

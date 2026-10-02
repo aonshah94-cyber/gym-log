@@ -11,9 +11,12 @@ window.GYM_FOODS = [
   ['Egg white', 52, 10.9, 0.7, 0.2, [['egg white', 33]], 'anda safedi'],
   ['Omelette', 154, 10.6, 0.6, 11.7, [['egg', 61]], 'anda omelet'],
   ['Beef, lean, cooked', 217, 26.1, 0, 11.8, null, 'gosht mince steak'],
+  ['Beef, lean, raw', 176, 20, 0, 10, null, 'gosht mince steak uncooked'],
   ['Mutton / lamb, cooked', 294, 24.5, 0, 21, null, 'gosht goat'],
   ['Salmon, cooked', 206, 22.1, 0, 12.4, null, 'fish machli'],
+  ['Salmon, raw', 208, 20.4, 0, 13.4, null, 'fish machli uncooked'],
   ['White fish, cooked', 128, 26.2, 0, 2.7, null, 'tilapia machli fish'],
+  ['White fish, raw', 96, 20.1, 0, 1.7, null, 'tilapia machli fish uncooked'],
   ['Tuna, canned in water', 116, 25.5, 0, 0.8, null, 'fish'],
   ['Shrimp, cooked', 99, 24, 0.2, 0.3, null, 'prawns jheenga'],
 
@@ -30,6 +33,8 @@ window.GYM_FOODS = [
   ['Corn flakes', 357, 7.5, 84, 0.4, null, 'cereal'],
   ['Potato, boiled', 87, 1.9, 20.1, 0.1, [['g', 1], ['medium potato', 150]], 'aloo'],
   ['Sweet potato, baked', 90, 2, 20.7, 0.2, [['g', 1], ['medium potato', 130]], 'shakarkandi'],
+  ['Potato, raw', 77, 2, 17.5, 0.1, [['g', 1], ['medium potato', 170]], 'aloo uncooked'],
+  ['Sweet potato, raw', 86, 1.6, 20.1, 0.1, [['g', 1], ['medium potato', 140]], 'shakarkandi uncooked'],
   ['Lentils, boiled', 116, 9, 20.1, 0.4, null, 'daal masoor plain'],
   ['Chickpeas, boiled', 164, 8.9, 27.4, 2.6, null, 'chana chole'],
   ['Kidney beans, boiled', 127, 8.7, 22.8, 0.5, null, 'rajma lobia'],
@@ -69,6 +74,10 @@ window.GYM_FOODS = [
   ['Cucumber', 15, 0.7, 3.6, 0.1, null, 'kheera'],
   ['Onion', 40, 1.1, 9.3, 0.1, null, 'pyaz'],
   ['Carrot', 41, 0.9, 9.6, 0.2, [['carrot', 61]], 'gajar'],
+  ['Mixed salad', 20, 1, 4, 0.2, [['g', 1], ['bowl', 150]], 'kachumber cucumber tomato onion lettuce green'],
+  ['Green beans', 31, 1.8, 7, 0.2, null, 'french beans phaliyan vegetable'],
+  ['Peas, boiled', 84, 5.4, 15.6, 0.2, null, 'matar green vegetable'],
+  ['Cabbage', 25, 1.3, 5.8, 0.1, null, 'band gobi green vegetable'],
 
   // --- Nuts, oils, spreads ---
   ['Almonds', 579, 21.2, 21.6, 49.9, [['g', 1], ['almond', 1.2]], 'badam'],
@@ -140,3 +149,27 @@ window.GYM_FOODS = [
   ['Cola', 42, 0, 10.6, 0, [['ml', 1], ['can', 330]], 'coke pepsi soft drink'],
   ['Energy drink', 45, 0, 11, 0, [['can', 250], ['ml', 1]], ''],
 ];
+
+// Fiber in grams per 100 g. Foods not listed have none (meat, fish, eggs, dairy, oils, sugar).
+window.GYM_FIBER = {
+  'Rice, white, cooked': 0.4, 'Rice, white, raw': 1.3, 'Rice, brown, cooked': 1.8, 'Oats, dry': 10.6,
+  'Pasta, cooked': 1.8, 'Pasta, dry': 3.2, 'Quinoa, cooked': 2.8, 'Bread, white': 2.7, 'Bread, whole wheat': 6.8,
+  'Corn flakes': 3.3, 'Potato, boiled': 1.8, 'Sweet potato, baked': 3.3, 'Potato, raw': 2.2, 'Sweet potato, raw': 3,
+  'Lentils, boiled': 7.9, 'Chickpeas, boiled': 7.6, 'Kidney beans, boiled': 6.4,
+  'Banana': 2.6, 'Apple': 2.4, 'Orange': 2.4, 'Mango': 1.6, 'Dates': 8, 'Grapes': 0.9, 'Watermelon': 0.4,
+  'Strawberries': 2, 'Pineapple': 1.4, 'Pomegranate': 4, 'Guava': 5.4, 'Pear': 3.1, 'Avocado': 6.7,
+  'Broccoli': 2.6, 'Spinach': 2.2, 'Tomato': 1.2, 'Cucumber': 0.5, 'Onion': 1.7, 'Carrot': 2.8,
+  'Mixed salad': 1.2, 'Green beans': 3.2, 'Peas, boiled': 5.5, 'Cabbage': 2.5,
+  'Almonds': 12.5, 'Peanuts': 8.5, 'Walnuts': 6.7, 'Cashews': 3.3, 'Roasted chickpeas': 15, 'Peanut butter': 6,
+  'Honey': 0.2, 'Jam': 1, 'Ketchup': 0.3,
+  'Roti / chapati': 6, 'Paratha, plain': 4, 'Naan': 2.2, 'Puri': 3, 'Daal (lentil curry)': 4, 'Chana masala': 5,
+  'Chicken curry': 0.8, 'Chicken karahi': 0.8, 'Chicken biryani': 1, 'Pulao': 1, 'Khichdi': 2,
+  'Qeema (minced meat curry)': 0.8, 'Nihari': 0.5, 'Haleem': 2.5, 'Aloo sabzi (potato curry)': 2,
+  'Mixed vegetable curry': 3, 'Bhindi (okra) fry': 3.2, 'Saag': 3.5, 'Palak paneer': 2, 'Chicken tikka': 0.3,
+  'Seekh kebab': 0.5, 'Shami kebab': 1.5, 'Chapli kebab': 0.7, 'Chicken shawarma': 1.5, 'Samosa': 2.5, 'Pakora': 3,
+  'Raita': 0.3, 'Kheer': 0.2, 'Gulab jamun': 0.3, 'Jalebi': 0.3,
+  'Beef burger': 1.3, 'Chicken burger, crispy': 1.5, 'Pizza': 2.3, 'French fries': 3.8, 'Fried chicken': 0.5,
+  'Chicken nuggets': 0.9, 'Fried rice': 1, 'Instant noodles, dry': 2.5, 'Milk chocolate': 3.4, 'Dark chocolate': 10.9,
+  'Digestive biscuit': 3.5, 'Potato chips': 4.4, 'Ice cream, vanilla': 0.7, 'Doughnut': 1.3, 'Chocolate cake': 2.5,
+  'Milkshake': 0.3, 'Orange juice': 0.2,
+};

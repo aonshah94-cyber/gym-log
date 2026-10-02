@@ -1,6 +1,6 @@
 // Bump the version whenever app files change so phones pick up the update.
-const CACHE = 'gymlog-v3';
-const ASSETS = ['./', 'index.html', 'styles.css', 'data.js', 'app.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
+const CACHE = 'gymlog-v21';
+const ASSETS = ['./', 'index.html', 'styles.css', 'dialog.js', 'data.js', 'foods.js', 'nutrition.js', 'app.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

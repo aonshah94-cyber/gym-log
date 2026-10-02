@@ -5,6 +5,7 @@
   const DEFAULT_SETS = 3;
   const MAX_EXERCISES = 10;
   const { MUSCLES, DEFAULT_COUNT, LIBRARY, SPLITS } = window.GYM_DATA;
+  const { confirm: ask, prompt: askText, alert: tell } = window.GymDialog;
 
   const $ = (s, el = document) => el.querySelector(s);
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -74,11 +75,11 @@
     try {
       localStorage.setItem(KEY, JSON.stringify(state));
     } catch (e) {
-      alert('Could not save — storage is full or unavailable.');
+      tell('Could not save — storage is full or unavailable.');
     }
   }
 
-  const hasData = entry => !!entry && (entry.drop || entry.sets.some(s => s.w != null || s.r != null));
+  const hasData = entry => !!entry && (entry.drop || entry.min > 0 || entry.sets.some(s => s.w != null || s.r != null));
   // A set only counts as done once it has reps; a weight alone is just pre-filled.
   const isLogged = entry => !!entry && entry.sets.some(s => s.r != null);
 
@@ -147,14 +148,22 @@
     let best = null;
     for (const s of state.sessions) {
       if (beforeDate && s.date >= beforeDate) continue;
+      // Kg and plates can't be compared, so only entries in the exercise's current unit count.
+      if (s.entries[exId] && entryUnit(s.entries[exId]) !== exUnit(exId)) continue;
       const c = bestOfEntry(s.entries[exId]);
       if (c && (!best || better(c, best))) best = { ...c, date: s.date };
     }
     return best;
   }
 
-  const fmtSet = s => (s.w ? `${s.w}×${s.r != null ? s.r : '–'}` : `BW×${s.r != null ? s.r : '–'}`);
-  const fmtEntry = e => e.sets.filter(s => s.r != null).map(fmtSet).join(' · ') + (e.drop ? ' · drop set' : '');
+  // Load is logged in kg, or as a number of plates on plate-stack machines.
+  // The exercise remembers the choice; each entry keeps the unit it was logged in.
+  const exUnit = id => (state.exercises[id] && state.exercises[id].unit) || 'kg';
+  const entryUnit = e => e.unit || 'kg';
+
+  // "60×10" in kg, "8pl×10" in plates, "BW×12" with no load.
+  const fmtSet = (s, unit) => `${s.w ? s.w + (unit === 'plates' ? 'pl' : '') : 'BW'}×${s.r != null ? s.r : '–'}`;
+  const fmtEntry = e => e.sets.filter(s => s.r != null).map(s => fmtSet(s, entryUnit(e))).join(' · ') + (e.drop ? ' · drop set' : '');
 
   // Next day in the rotation after the most recently logged one.
   function nextDayId() {
@@ -173,7 +182,7 @@
   // calCursor: any date inside the week/month the calendar is showing. logPast: log on a past date that has no workout.
   const ui = {
     tab: 'workout', dayId: nextDayId(), date: today(), editing: false, choosingSplit: false, progressEx: null,
-    calCursor: today(), calOpen: false, logPast: false,
+    calCursor: today(), calOpen: false, logPast: false, progressView: 'workout',
   };
 
   function selectDate(date) {
@@ -188,44 +197,54 @@
 
   // ---------- Calendar ----------
 
-  function calendar() {
+  // Week strip that expands to a month. The Nutrition tab reuses it with its own marks.
+  // opts: { cursor, open, selected, mark: date => 'done' | 'missed' | '', attr: action attribute, doneLabel }
+  function calendarHtml({ cursor, open, selected, mark, attr, doneLabel }) {
     const t = today();
-    const done = new Set(state.sessions.filter(s => Object.values(s.entries).some(isLogged)).map(s => s.date));
-    const first = [...done].sort()[0];
-    const cur = toDate(ui.calCursor);
+    const cur = toDate(cursor);
 
     let start, end;
-    if (ui.calOpen) {
+    if (open) {
       start = mondayOf(isoDate(new Date(cur.getFullYear(), cur.getMonth(), 1)));
       end = addDays(mondayOf(isoDate(new Date(cur.getFullYear(), cur.getMonth() + 1, 0))), 6);
     } else {
-      start = mondayOf(ui.calCursor);
+      start = mondayOf(cursor);
       end = addDays(start, 6);
     }
 
     let cells = '';
     for (let d = start; d <= end; d = addDays(d, 1)) {
       const cls = ['cal-day'];
-      if (d === ui.date) cls.push('sel');
+      if (d === selected) cls.push('sel');
       if (d === t) cls.push('today');
-      if (ui.calOpen && toDate(d).getMonth() !== cur.getMonth()) cls.push('out');
-      // Days without a workout only count as missed once tracking has started.
-      const mark = done.has(d) ? 'done' : first && d > first && d < t ? 'missed' : '';
-      const label = fmtDate(d, { weekday: 'long', day: 'numeric', month: 'long' }) + (mark === 'done' ? ', workout done' : mark === 'missed' ? ', missed' : '');
-      cells += `<button class="${cls.join(' ')}" data-action="cal-pick" data-date="${d}" aria-label="${label}"${d > t ? ' disabled' : ''}>${toDate(d).getDate()}<i class="dot ${mark}"></i></button>`;
+      if (open && toDate(d).getMonth() !== cur.getMonth()) cls.push('out');
+      const m = mark(d);
+      const label = fmtDate(d, { weekday: 'long', day: 'numeric', month: 'long' }) + (m === 'done' ? `, ${doneLabel.toLowerCase()}` : m === 'missed' ? ', missed' : '');
+      cells += `<button class="${cls.join(' ')}" ${attr}="cal-pick" data-date="${d}" aria-label="${label}"${d > t ? ' disabled' : ''}>${toDate(d).getDate()}<i class="dot ${m}"></i></button>`;
     }
 
     return `
       <section class="card cal">
         <div class="cal-head">
-          <button class="icon-btn" data-action="cal-prev" aria-label="Previous ${ui.calOpen ? 'month' : 'week'}">‹</button>
-          <button class="cal-title" data-action="cal-toggle" aria-expanded="${ui.calOpen}">${cur.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })} <span>${ui.calOpen ? '▴' : '▾'}</span></button>
-          <button class="icon-btn" data-action="cal-next" aria-label="Next ${ui.calOpen ? 'month' : 'week'}"${end >= t ? ' disabled' : ''}>›</button>
+          <button class="icon-btn" ${attr}="cal-prev" aria-label="Previous ${open ? 'month' : 'week'}">‹</button>
+          <button class="cal-title" ${attr}="cal-toggle" aria-expanded="${open}">${cur.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })} <span>${open ? '▴' : '▾'}</span></button>
+          <button class="icon-btn" ${attr}="cal-next" aria-label="Next ${open ? 'month' : 'week'}"${end >= t ? ' disabled' : ''}>›</button>
         </div>
         <div class="cal-grid cal-week">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map(d => `<span>${d}</span>`).join('')}</div>
         <div class="cal-grid">${cells}</div>
-        <div class="cal-legend"><span><i class="dot done"></i>Workout done</span><span><i class="dot missed"></i>Missed</span></div>
+        <div class="cal-legend"><span><i class="dot done"></i>${doneLabel}</span><span><i class="dot missed"></i>Missed</span></div>
       </section>`;
+  }
+
+  function calendar() {
+    const t = today();
+    const done = new Set(state.sessions.filter(s => Object.values(s.entries).some(isLogged)).map(s => s.date));
+    const first = [...done].sort()[0];
+    return calendarHtml({
+      cursor: ui.calCursor, open: ui.calOpen, selected: ui.date, attr: 'data-action', doneLabel: 'Workout done',
+      // Days without a workout only count as missed once tracking has started.
+      mark: d => (done.has(d) ? 'done' : first && d > first && d < t ? 'missed' : ''),
+    });
   }
 
   // ---------- Split chooser ----------
@@ -338,7 +357,7 @@
       html += '<p class="group-label">Also logged</p>';
       for (const id of extra) html += exerciseCard(id, session, `<h2>${esc(exName(id))}</h2>`, '');
     }
-    return html;
+    return html + `<section class="card" id="burn-total">${burnSummary(session)}</section>`;
   }
 
   // Shown for a past date that has no workout for the selected day.
@@ -391,27 +410,34 @@
     const entry = session && session.entries[exId];
     const last = lastEntry(exId, ui.date);
     const n = entry ? entry.sets.length : last ? last.entry.sets.length : DEFAULT_SETS;
+    const unit = entry ? entryUnit(entry) : exUnit(exId);
+    const unitBtn = u => `<button class="${u === unit ? 'on' : ''}" data-action="unit" data-unit="${u}" aria-pressed="${u === unit}">${u}</button>`;
     let rows = '';
     for (let i = 0; i < n; i++) {
       const cur = (entry && entry.sets[i]) || {};
-      const prev = (last && last.entry.sets[i]) || {};
+      // Last time's numbers are only a useful hint when they were in the same unit.
+      const prev = (last && entryUnit(last.entry) === unit && last.entry.sets[i]) || {};
       rows += `
         <div class="set" data-i="${i}">
           <span class="set-n">${i + 1}</span>
-          <input data-f="w" inputmode="decimal" autocomplete="off" aria-label="Set ${i + 1} weight in kg" value="${cur.w != null ? cur.w : ''}" placeholder="${prev.w != null ? prev.w : ''}">
+          <input data-f="w" inputmode="decimal" autocomplete="off" aria-label="Set ${i + 1} ${unit === 'plates' ? 'number of plates' : 'weight in kg'}" value="${cur.w != null ? cur.w : ''}" placeholder="${prev.w != null ? prev.w : ''}">
           <input data-f="r" inputmode="numeric" autocomplete="off" aria-label="Set ${i + 1} reps" value="${cur.r != null ? cur.r : ''}" placeholder="${prev.r != null ? prev.r : ''}">
         </div>`;
     }
     return `
       <section class="card" data-ex="${exId}" ${attrs}>
-        <div class="card-head">${titleHtml}<span class="pr-badge"${isPR(exId, entry) ? '' : ' hidden'}>PR</span></div>
+        <div class="card-head">${titleHtml}<span class="burn">${burnTag(exId, entry)}</span><span class="pr-badge"${isPR(exId, entry) ? '' : ' hidden'}>PR</span></div>
+        <p class="burn-hint"${burnHint(entry) ? '' : ' hidden'}>${burnHint(entry)}</p>
         <p class="last">${last ? `Last (${fmtDate(last.date, { day: 'numeric', month: 'short' })}): ${esc(fmtEntry(last.entry))}` : 'No previous log'}</p>
         <div class="sets">
-          <div class="set-head"><span></span><span>kg</span><span>reps</span></div>
+          <div class="set-head"><span></span><span class="unit-toggle">${unitBtn('kg')}${unitBtn('plates')}</span><span>reps</span></div>
           ${rows}
         </div>
+        ${unit === 'plates' ? `
+          <label class="plate-kg">1 plate = <input data-field="plate-kg" inputmode="decimal" autocomplete="off" placeholder="${DEFAULT_PLATE_KG}" aria-label="Weight of one plate in kg" value="${plateKg(exId)}"> kg <span>${state.exercises[exId].plateKg ? 'for the calorie estimate' : 'typical for most machines; change it if you know yours'}</span></label>` : ''}
         <div class="card-foot">
           <label class="drop"><input type="checkbox" data-field="drop"${entry && entry.drop ? ' checked' : ''}> Drop set</label>
+          <label class="time"><input data-field="min" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Minutes this exercise took" value="${entry && entry.min != null ? entry.min : ''}"> min</label>
           <div class="set-btns">
             <button class="chip" data-action="rm-set" aria-label="Remove last set">−</button>
             <button class="chip" data-action="add-set">+ Set</button>
@@ -420,7 +446,85 @@
       </section>`;
   }
 
+  // ---------- Calories burned (rough estimate) ----------
+
+  // Two parts: the time spent (standing, setting up, resting between sets) and the lifting itself.
+  // While training but not lifting, the body burns about 1.5 times its resting rate on top of rest.
+  const IDLE_MET = 1.5;
+  // Moving 1 kg through one rep costs roughly this many kcal once lowering, holding and recovery are included.
+  const KCAL_PER_KG_REP = 0.015;
+  // Share of body weight that moves with the load in each muscle group's exercises (a squat moves most of you).
+  const BODY_SHARE = { legs: 0.6, back: 0.3, abs: 0.3, chest: 0.1, shoulders: 0.1, biceps: 0.05, triceps: 0.05, forearms: 0.03 };
+  // With no weight entered the exercise is done with body weight alone (push-ups, pull-ups, dips).
+  const BODYWEIGHT_SHARE = 0.6;
+  const DEFAULT_BODY_KG = 75;
+  // Weight-stack plates differ between machines, but most are 5 kg (or 10 lb, about 4.5 kg) each.
+  // This is used until the user says what one weighs.
+  const DEFAULT_PLATE_KG = 5;
+  const bodyWeight = () => window.GymNutrition.bodyWeight() || DEFAULT_BODY_KG;
+  const plateKg = exId => (state.exercises[exId] && state.exercises[exId].plateKg) || DEFAULT_PLATE_KG;
+
+  // Kilograms moved per rep in a set: the load (plates converted to kg) plus the share of the body that moves.
+  function setLoad(exId, entry, set) {
+    const share = BODY_SHARE[(state.exercises[exId] || {}).muscle] || 0.1;
+    if (!set.w) return Math.max(share, BODYWEIGHT_SHARE) * bodyWeight();
+    return set.w * (entryUnit(entry) === 'plates' ? plateKg(exId) : 1) + share * bodyWeight();
+  }
+
+  // Extra calories an exercise burned. Only counts once sets are logged and a time is given.
+  function burn(exId, entry) {
+    if (!entry || !(entry.min > 0) || !isLogged(entry)) return 0;
+    const idle = IDLE_MET * bodyWeight() * (entry.min / 60);
+    const lifting = entry.sets.reduce((s, x) => s + (x.r > 0 ? setLoad(exId, entry, x) * x.r : 0), 0) * KCAL_PER_KG_REP;
+    return idle + lifting;
+  }
+
+  // The small label beside the exercise name: the estimate, or what is still missing for one.
+  const burnTag = (exId, entry) => `≈ ${Math.round(burn(exId, entry))} kcal`;
+  // The line under the exercise name saying what is still missing for an estimate; empty once there is one.
+  function burnHint(entry) {
+    if (!entry || !(entry.min > 0)) return 'Add the time below to calculate the calories.';
+    if (!isLogged(entry)) return 'Add your reps to calculate the calories.';
+    return '';
+  }
+
+  // Totals for one workout: only the exercises that were actually done and timed.
+  function sessionBurn(session) {
+    const t = { kcal: 0, min: 0, timed: 0, logged: 0 };
+    for (const [id, entry] of Object.entries(session ? session.entries : {})) {
+      if (!isLogged(entry)) continue;
+      t.logged++;
+      if (!(entry.min > 0)) continue;
+      t.timed++;
+      t.min += entry.min;
+      t.kcal += burn(id, entry);
+    }
+    return t;
+  }
+
+  function burnSummary(session) {
+    const t = sessionBurn(session);
+    const own = window.GymNutrition.bodyWeight();
+    const why = `
+      <p class="last"><b>Why this is only a rough estimate.</b> The app does not measure anything: it has no heart-rate or oxygen reading. It applies average rates to what you typed: a fixed cost for every kilogram lifted per rep, and a fixed rate for the minutes spent, scaled to a body weight of ${own || DEFAULT_BODY_KG} kg. It cannot see how fast you lift, how far the weight travels, how long you rest, how much muscle you have, how fit you are, or what a machine’s plates really weigh. Two people doing the same sets can burn quite different amounts, so treat the figure as a guide that can be off by a quarter or more.</p>`;
+    if (!t.timed) return '<h2>≈ 0 kcal burned</h2><p class="last">Add the minutes each exercise took (the “min” box on each exercise) and the app estimates the calories you burned.</p>' + why;
+    return `
+      <h2>≈ ${Math.round(t.kcal)} kcal burned</h2>
+      <p class="last">${t.min} min · ${t.timed} exercise${t.timed === 1 ? '' : 's'}${t.timed < t.logged ? ` (${t.logged - t.timed} more logged without a time)` : ''}. Only exercises you logged and timed are counted.</p>` + why;
+  }
+
+  // Refresh one card's calorie figure and the day's total without redrawing the inputs.
+  function updateBurn(card, entry) {
+    $('.burn', card).textContent = burnTag(card.dataset.ex, entry);
+    const hint = $('.burn-hint', card);
+    hint.textContent = burnHint(entry);
+    hint.hidden = !burnHint(entry);
+    const total = $('#burn-total');
+    if (total) total.innerHTML = burnSummary(sessionFor(ui.dayId, ui.date, false));
+  }
+
   function isPR(exId, entry) {
+    if (entry && entryUnit(entry) !== exUnit(exId)) return false;
     const cur = bestOfEntry(entry);
     const prev = bestSet(exId, ui.date);
     return !!(cur && prev && better(cur, prev));
@@ -431,14 +535,14 @@
     const session = sessionFor(ui.dayId, ui.date, true);
     session.dayName = dayById(ui.dayId).name;
     const exId = card.dataset.ex;
-    if (!session.entries[exId]) session.entries[exId] = { sets: [], drop: false };
+    if (!session.entries[exId]) session.entries[exId] = { sets: [], drop: false, unit: exUnit(exId) };
     const entry = session.entries[exId];
     const rows = card.querySelectorAll('.set').length;
     while (entry.sets.length < rows) entry.sets.push({ w: null, r: null });
     return entry;
   }
 
-  function pickExercise(select) {
+  async function pickExercise(select) {
     const card = select.closest('.card');
     const day = dayById(ui.dayId);
     const g = day.groups[+card.dataset.g];
@@ -446,14 +550,14 @@
 
     let name = select.value;
     if (name === '__custom') {
-      name = (prompt(`Name of your ${muscleLabel(g.muscle).toLowerCase()} exercise`) || '').trim();
+      name = ((await askText(`Name of your ${muscleLabel(g.muscle).toLowerCase()} exercise`, 'Exercise name')) || '').trim();
       if (!name) return render();
     }
     const id = exIdByName(name, g.muscle);
     const old = g.slots[si];
     if (id !== old && dayExIds(day).includes(id)) {
-      alert(`"${exName(id)}" is already in this day.`);
-      return render();
+      render();
+      return tell(`"${exName(id)}" is already in this day.`);
     }
     g.slots[si] = id;
     // Numbers already typed in this box stay with the box.
@@ -476,6 +580,7 @@
       <section class="card" data-session="${s.id}">
         <div class="card-head"><h2>${esc(day ? day.name : s.dayName || 'Workout')}</h2><span class="h-date">${fmtDate(s.date, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</span></div>
         <ul class="h-lines">${ids.map(id => `<li><b>${esc(exName(id))}</b> <span>${esc(fmtEntry(s.entries[id]))}</span></li>`).join('')}</ul>
+        ${sessionBurn(s).timed ? `<p class="last">≈ ${Math.round(sessionBurn(s).kcal)} kcal burned · ${sessionBurn(s).min} min</p>` : ''}
         <div class="h-actions">
           ${day ? '<button class="link-btn" data-action="edit-session">Edit</button>' : ''}
           <button class="link-btn danger" data-action="delete-session">Delete</button>
@@ -498,7 +603,7 @@
   function seriesFor(exId) {
     const pts = [];
     for (const s of [...state.sessions].sort((a, b) => (a.date < b.date ? -1 : 1))) {
-      const b = bestOfEntry(s.entries[exId]);
+      const b = s.entries[exId] && entryUnit(s.entries[exId]) === exUnit(exId) ? bestOfEntry(s.entries[exId]) : null;
       if (b) pts.push({ date: s.date, w: b.w, r: b.r });
     }
     return pts;
@@ -507,6 +612,13 @@
   function renderProgress() {
     if (ui.progressEx && state.exercises[ui.progressEx]) return renderProgressDetail(ui.progressEx);
     ui.progressEx = null;
+
+    const seg = `<div class="seg">${[['workout', 'Workout'], ['nutrition', 'Nutrition']].map(([v, label]) =>
+      `<button class="${ui.progressView === v ? 'on' : ''}" data-action="progress-view" data-view="${v}">${label}</button>`).join('')}</div>`;
+    if (ui.progressView === 'nutrition') {
+      $('#app').innerHTML = `<header class="top"><div class="top-row"><h1>Progress</h1></div>${seg}</header>${window.GymNutrition.progressHtml()}`;
+      return;
+    }
 
     const seen = new Set();
     const row = id => {
@@ -517,7 +629,7 @@
         <section class="card">
           <button class="p-row" data-action="open-progress" data-id="${id}">
             <span class="p-name">${esc(exName(id))}<span class="p-n">${pts.length ? `${pts.length} session${pts.length === 1 ? '' : 's'}` : 'Not logged yet'}</span></span>
-            ${pr ? `<span class="p-pr">${fmtSet(pr)}</span>` : ''}
+            ${pr ? `<span class="p-pr">${fmtSet(pr, exUnit(id))}</span>` : ''}
           </button>
         </section>`;
     };
@@ -530,14 +642,15 @@
     if (other.length) html += '<p class="group-label">No longer in a day</p>' + other.map(row).join('');
 
     $('#app').innerHTML = `
-      <h1 class="page-title">Progress</h1>
-      <p class="sub">Personal records (kg × reps). Tap an exercise for its chart.</p>
+      <header class="top"><div class="top-row"><h1>Progress</h1></div>${seg}</header>
+      <p class="sub n-hint">Personal records (kg or plates × reps). Tap an exercise for its chart.</p>
       ${html || '<p class="empty">Choose your exercises in the Workout tab and they will show up here.</p>'}`;
   }
 
   function renderProgressDetail(exId) {
     const pts = seriesFor(exId);
     const pr = bestSet(exId);
+    const unit = exUnit(exId);
     const byWeight = pts.some(p => p.w > 0);
     const first = pts[0], latest = pts[pts.length - 1];
     const val = p => (byWeight ? p.w : p.r);
@@ -550,25 +663,26 @@
       <h1 class="page-title" style="margin-top:16px">${esc(exName(exId))}</h1>
       ${pts.length ? `
         <div class="stats">
-          <div class="stat"><b>${fmtSet(pr)}</b><span>Record</span></div>
-          <div class="stat"><b>${fmtSet(latest)}</b><span>Latest</span></div>
-          <div class="stat"><b>${change > 0 ? '+' : ''}${+change.toFixed(2)}${byWeight ? ' kg' : ''}</b><span>Since first log</span></div>
+          <div class="stat"><b>${fmtSet(pr, unit)}</b><span>Record</span></div>
+          <div class="stat"><b>${fmtSet(latest, unit)}</b><span>Latest</span></div>
+          <div class="stat"><b>${change > 0 ? '+' : ''}${+change.toFixed(2)}${byWeight ? (unit === 'plates' ? ' pl' : ' kg') : ''}</b><span>Since first log</span></div>
         </div>
         <section class="card">
-          <p class="sub">Top set ${byWeight ? 'weight (kg)' : 'reps'} per workout</p>
+          <p class="sub">Top set ${byWeight ? (unit === 'plates' ? 'plates' : 'weight (kg)') : 'reps'} per workout</p>
           ${chart(pts.map(p => ({ date: p.date, v: val(p), pr: p.date === pr.date })))}
         </section>
         <section class="card">
           <ul class="h-lines" style="margin:0">${[...pts].reverse().map(p =>
-            `<li><b>${fmtSet(p)}</b> <span>${fmtDate(p.date, { day: 'numeric', month: 'short', year: 'numeric' })}${p.date === pr.date ? ' · record' : ''}</span></li>`).join('')}</ul>
+            `<li><b>${fmtSet(p, unit)}</b> <span>${fmtDate(p.date, { day: 'numeric', month: 'short', year: 'numeric' })}${p.date === pr.date ? ' · record' : ''}</span></li>`).join('')}</ul>
         </section>`
         : '<p class="empty">Log this exercise to see its progress.</p>'}`;
     window.scrollTo(0, 0);
   }
 
-  function chart(pts) {
+  // target, when given, is drawn as a dashed line across the chart.
+  function chart(pts, target) {
     const W = 340, H = 180, L = 34, R = 12, T = 12, B = 24;
-    const vals = pts.map(p => p.v);
+    const vals = pts.map(p => p.v).concat(target > 0 ? [target] : []);
     let lo = Math.min(...vals), hi = Math.max(...vals);
     if (lo === hi) { lo -= 1; hi += 1; }
     const span = hi - lo;
@@ -589,17 +703,39 @@
     return `
       <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Progress chart">
         ${grid}
+        ${target > 0 ? `<line class="target" x1="${L}" x2="${W - R}" y1="${y(target)}" y2="${y(target)}"/>` : ''}
         <polyline class="line" points="${pts.map(p => `${x(p)},${y(p.v)}`).join(' ')}"/>
         ${pts.map(p => `<circle class="dot${p.pr ? ' pr' : ''}" cx="${x(p)}" cy="${y(p.v)}" r="4"/>`).join('')}
         ${labels}
       </svg>`;
   }
 
+  window.GymUI = {
+    calendar: calendarHtml,
+    chart,
+    // Redraws whichever tab is open; the Nutrition module calls it when setup finishes.
+    render: () => render(),
+    // Calories burned across every workout logged on a date, for the Nutrition tab.
+    workoutBurn(date) {
+      const t = { kcal: 0, min: 0, timed: 0, logged: 0 };
+      for (const s of state.sessions.filter(x => x.date === date)) {
+        const b = sessionBurn(s);
+        for (const k in t) t[k] += b[k];
+      }
+      return t;
+    },
+  };
+
   // ---------- Render + events ----------
 
   function render() {
+    // Until the user's details are in, the setup screen replaces the whole app.
+    const setup = window.GymNutrition.inSetup();
+    document.body.classList.toggle('setup', setup);
+    if (setup) return window.GymNutrition.render();
     for (const b of document.querySelectorAll('#tabbar button')) b.classList.toggle('on', b.dataset.tab === ui.tab);
-    if (ui.tab === 'history') renderHistory();
+    if (ui.tab === 'nutrition') window.GymNutrition.render();
+    else if (ui.tab === 'history') renderHistory();
     else if (ui.tab === 'progress') renderProgress();
     else renderWorkout();
   }
@@ -608,6 +744,7 @@
     tab(el) {
       prune();
       if (el.dataset.tab === ui.tab && ui.tab === 'progress') ui.progressEx = null;
+      if (el.dataset.tab === ui.tab && ui.tab === 'nutrition') return window.GymNutrition.home();
       ui.tab = el.dataset.tab;
       ui.editing = false;
       ui.choosingSplit = false;
@@ -626,9 +763,9 @@
 
     'change-split'() { ui.choosingSplit = true; render(); window.scrollTo(0, 0); },
     'cancel-split'() { ui.choosingSplit = false; render(); },
-    'pick-split'(el) {
+    async 'pick-split'(el) {
       const split = SPLITS[+el.dataset.i];
-      if (state.days.length && !confirm(`Switch to "${split.name}"? Your current days are replaced. Workouts already logged stay in History.`)) return;
+      if (state.days.length && !(await ask(`Switch to "${split.name}"? Your current days are replaced. Workouts already logged stay in History.`, 'Switch'))) return;
       applySplit(split);
       render();
       window.scrollTo(0, 0);
@@ -640,19 +777,19 @@
       ui.dayId = day.id;
       save(); render();
     },
-    'delete-day'() {
+    async 'delete-day'() {
       const day = dayById(ui.dayId);
-      if (!confirm(`Delete "${day.name}"? Workouts already logged stay in History.`)) return;
+      if (!(await ask(`Delete "${day.name}"? Workouts already logged stay in History.`, 'Delete', true))) return;
       state.days = state.days.filter(d => d !== day);
       ui.dayId = state.days.length ? state.days[0].id : null;
       if (!state.days.length) ui.editing = false;
       save(); render();
     },
-    'toggle-muscle'(el) {
+    async 'toggle-muscle'(el) {
       const day = dayById(ui.dayId);
       const muscle = el.dataset.muscle;
       const g = day.groups.find(x => x.muscle === muscle);
-      if (g && g.slots.some(Boolean) && !confirm(`Remove ${muscleLabel(muscle)} and its chosen exercises from this day? Their history is kept.`)) return;
+      if (g && g.slots.some(Boolean) && !(await ask(`Remove ${muscleLabel(muscle)} and its chosen exercises from this day? Their history is kept.`, 'Remove', true))) return;
       // Keep the day name in step with its muscles unless it was renamed by hand.
       const named = day.name !== autoName(day);
       if (g) day.groups = day.groups.filter(x => x !== g);
@@ -671,15 +808,22 @@
       save(); render();
     },
 
+    unit(el) {
+      const exId = el.closest('.card').dataset.ex;
+      state.exercises[exId].unit = el.dataset.unit;
+      const session = sessionFor(ui.dayId, ui.date, false);
+      if (session && session.entries[exId]) session.entries[exId].unit = el.dataset.unit;
+      save(); render();
+    },
     'add-set'(el) {
       entryForCard(el.closest('.card')).sets.push({ w: null, r: null });
       save(); render();
     },
-    'rm-set'(el) {
+    async 'rm-set'(el) {
       const entry = entryForCard(el.closest('.card'));
       if (entry.sets.length <= 1) return;
       const lastSet = entry.sets[entry.sets.length - 1];
-      if ((lastSet.w != null || lastSet.r != null) && !confirm('Remove the last set and its numbers?')) return;
+      if ((lastSet.w != null || lastSet.r != null) && !(await ask('Remove the last set and its numbers?', 'Remove', true))) return;
       entry.sets.pop();
       save(); render();
     },
@@ -690,14 +834,15 @@
       render();
       window.scrollTo(0, 0);
     },
-    'delete-session'(el) {
+    async 'delete-session'(el) {
       const id = el.closest('.card').dataset.session;
       const s = state.sessions.find(x => x.id === id);
-      if (!confirm(`Delete the workout from ${fmtDate(s.date)}? This can't be undone.`)) return;
+      if (!(await ask(`Delete the workout from ${fmtDate(s.date)}? This can't be undone.`, 'Delete', true))) return;
       state.sessions = state.sessions.filter(x => x.id !== id);
       save(); render();
     },
 
+    'progress-view'(el) { ui.progressView = el.dataset.view; render(); },
     'open-progress'(el) { ui.progressEx = el.dataset.id; render(); },
     'close-progress'() { ui.progressEx = null; render(); },
   };
@@ -723,6 +868,19 @@
       entry.sets[+el.closest('.set').dataset.i][el.dataset.f] = parseNum(el.value);
       save();
       $('.pr-badge', card).hidden = !isPR(card.dataset.ex, entry);
+      updateBurn(card, entry);
+    } else if (el.dataset.field === 'plate-kg') {
+      const card = el.closest('.card');
+      state.exercises[card.dataset.ex].plateKg = parseNum(el.value) || null;
+      save();
+      const session = sessionFor(ui.dayId, ui.date, false);
+      updateBurn(card, session && session.entries[card.dataset.ex]);
+    } else if (el.dataset.field === 'min') {
+      const card = el.closest('.card');
+      const entry = entryForCard(card);
+      entry.min = parseNum(el.value);
+      save();
+      updateBurn(card, entry);
     } else if (el.dataset.field === 'day-name') {
       dayById(ui.dayId).name = el.value.trim() || 'Untitled day';
       save();
@@ -754,7 +912,7 @@
 
   // Enter moves to the next field instead of doing nothing.
   document.addEventListener('keydown', e => {
-    if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+    if (e.key !== 'Enter' || e.target.tagName !== 'INPUT' || !e.target.closest('#app')) return;
     const inputs = [...document.querySelectorAll('#app input:not([type="checkbox"]):not([type="date"])')];
     const next = inputs[inputs.indexOf(e.target) + 1];
     if (next) next.focus(); else e.target.blur();
